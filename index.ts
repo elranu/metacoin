@@ -1,6 +1,7 @@
 import jsonConvertLib from "./build/contracts/ConvertLib.json";
 import jsonMetaCoin from "./build/contracts/MetaCoin.json";
 import Web3 from "web3";
+import { isThrowStatement } from "typescript";
 
 var contract = require("@truffle/contract");
 
@@ -13,30 +14,32 @@ class Main {
     private privateKey = "0x084dc47c14df76e6771eabd5f309cc8607c5be6a9861090d0ee17ab99d8ecd78";
 
     private web3: Web3;
+    account: any;
     
     constructor()
     {
         this.web3 = new Web3(this.rpcUrl);
-        const account = this.web3.eth.accounts.privateKeyToAccount(this.privateKey);
-        this.web3.eth.accounts.wallet.add(account);
-        this.web3.eth.defaultAccount = account.address;
+        this.account = this.web3.eth.accounts.privateKeyToAccount(this.privateKey);
+        this.web3.eth.accounts.wallet.add(this.account);
+        this.web3.eth.defaultAccount = this.account.address;
     }
 
     public async deploy() {
-        const proxyLib = contract(jsonConvertLib);
-        proxyLib.setProvider(this.web3.currentProvider);
+        const convertLib = await contract(jsonConvertLib);
+        convertLib.setProvider(this.web3.currentProvider);
         
-        await proxyLib.detectNetwork();
-        const libInstance = await proxyLib.at(this.libAddress);
+        await convertLib.detectNetwork();
+        const libInstance = await convertLib.at(this.libAddress);
         
         const metacoinContract = contract(jsonMetaCoin);
 
         metacoinContract.setProvider(this.web3.currentProvider);
         
         await metacoinContract.detectNetwork();
-        await metacoinContract.link(libInstance);
+        await metacoinContract.link(convertLib, libInstance.address);
+        //await metacoinContract.link(libInstance);
         
-        const instanceMetacoin = await metacoinContract.new();
+        const instanceMetacoin = await metacoinContract.new({from: this.account.address});
 
         console.log('Proxy address (owner): ' + instanceMetacoin.address);
         return instanceMetacoin;
